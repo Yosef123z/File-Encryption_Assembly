@@ -1,0 +1,193 @@
+
+### Detailed Explanation of the Entire Assembly Code
+
+The provided assembly code implements a file-based encryption and decryption program. It interacts with the user through text-based menus and uses DOS interrupts for file operations and input/output. Below is a detailed explanation of the code, segmented by functionality:
+
+---
+
+### **Data Segment**
+
+The `.data` section contains variables, constants, and strings used by the program.
+
+1. **User Messages (`message1` to `message7`)**:
+   - Strings used to display prompts and messages to the user (e.g., "Message:", "Press 1 to encrypt"). Each string ends with `$` for compatibility with DOS interrupt 21h, function 09h.
+
+2. **File Names and Handles**:
+   - `filename1` and `filename2`: Store the names of the input and output files, respectively.
+   - `handler1` and `handler2`: Store file handles for the respective files.
+   - `point_fname1` and `point_fname2`: Pointers to the file names.
+
+3. **Buffer and Encryption Parameters**:
+   - `buffer`: A 200-byte array to store file contents.
+   - `len`: Specifies the maximum size of the buffer.
+   - `level`: Indicates the current encryption level (from 0 to 3).
+   - `pass` and `pass2`: Constants used for encryption/decryption logic.
+
+---
+
+### **Code Segment**
+
+The `.code` section implements the program's logic.
+
+---
+
+#### **Program Initialization**
+
+```asm
+main:
+    mov ax, @data
+    mov ds, ax
+```
+- Initializes the data segment by loading the address of `@data` into `DS`.
+
+---
+
+#### **Opening the Input File**
+
+```asm
+    xor ax, ax
+    mov al, 02h
+    mov ah, 3dh
+    lds dx, point_fname1
+    int 21h
+    mov handler1, ax
+```
+- Opens the input file (`input.txt`) in read-only mode and stores its file handle in `handler1`. If the operation fails, an error code is returned in `AX`.
+
+---
+
+#### **Reading File Contents**
+
+```asm
+    mov ah, 3fh
+    mov bx, handler1
+    mov cx, len
+    lea dx, buffer
+    int 21h
+```
+- Reads up to 200 bytes from the input file into the `buffer`.
+
+---
+
+#### **Calculating the Effective Message Length**
+
+```asm
+    mov cx, len
+    mov si, 0
+
+computeLen:
+    cmp buffer[si], 20h
+    jl correctLen
+    cmp buffer[si], 7fh
+    jg correctLen
+    inc si
+    loop computeLen
+    jmp output
+```
+- Iterates through `buffer` to determine the length of the valid message by checking for characters within the printable ASCII range (`20h` to `7Fh`).
+
+---
+
+#### **Displaying the Message**
+
+```asm
+output:
+    xor dx, dx
+    mov dx, offset message1
+    mov ah, 09h
+    int 21h
+```
+- Displays the prompt "Message: " followed by the contents of the `buffer`.
+
+---
+
+#### **User Interaction and Menu Options**
+
+```asm
+input:
+    mov ah, 1h
+    int 21h
+    cmp al, 31h ; '1'
+    je toCrypt
+    cmp al, 32h ; '2'
+    je toDecryptJumptExtend
+    cmp al, 33h ; '3'
+    je saveJumptExtend
+    cmp al, 34h ; '4'
+    je exitJumptExtend
+```
+- Displays a menu to the user and captures input to determine the action:
+  - Press `1` for encryption.
+  - Press `2` for decryption.
+  - Press `3` to save the current message to a file.
+  - Press `4` to exit.
+
+---
+
+#### **Encryption Process**
+
+```asm
+toCrypt:
+    cmp level, 30h
+    je crypt1
+    ...
+crypt1:
+    xor buffer[si], pass
+    inc si
+    loop crypt1
+    inc level
+    jmp outputJumptExtend
+```
+- The encryption process modifies the `buffer` contents based on the current `level`. Each level uses a different algorithm (e.g., XORing, adding, rotating bits).
+
+---
+
+#### **Decryption Process**
+
+```asm
+toDecrypt:
+    cmp level, 30h
+    je minDecrypt
+    ...
+decrypt1:
+    xor buffer[si], pass
+    inc si
+    loop decrypt1
+    dec level
+    jmp outputJumptExtend
+```
+- Reverses the changes made by the encryption process, using the corresponding decryption algorithm for the current level.
+
+---
+
+#### **Saving the Message to a File**
+
+```asm
+save:
+    mov ah, 3ch
+    lds dx, point_fname2
+    mov cx, 1
+    int 21h
+    ...
+```
+- Opens (or creates) the output file (`output.txt`) and writes the contents of `buffer` to it.
+
+---
+
+#### **Exiting the Program**
+
+```asm
+exit:
+    mov ah, 3eh
+    lds bx, point_fname1
+    int 21h
+    mov ax, 4c00h 
+    int 21h
+```
+- Closes the input file and exits the program gracefully.
+
+---
+
+### **Summary**
+
+This assembly program provides basic file encryption and decryption functionality. It opens a file, reads its contents, and allows the user to perform actions such as encryption, decryption, saving the modified message, or exiting. It uses DOS interrupts extensively for file and console operations. The encryption process supports multiple levels, each applying a different algorithm to the file data.
